@@ -5,21 +5,27 @@ import androidx.room.*
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 
-@Entity(tableName = "automations")
-data class AutomationEntity(
-    @PrimaryKey val id: String,
-    val name: String,
-    val command: String,
-    val scheduleType: String,
-    val scheduleHour: Int = 0,
-    val scheduleMinute: Int = 0,
-    val scheduleDayOfWeek: Int = 0,
-    val scheduleIntervalMs: Long = 0,
-    val enabled: Boolean = true,
-    val lastRun: Long? = null,
-    val lastResult: String? = null,
-    val runCount: Int = 0
-)
+class AutomationScheduleConverters {
+    @TypeConverter
+    fun fromSchedule(schedule: AutomationManager.AutomationSchedule): String = when (schedule) {
+        is AutomationManager.AutomationSchedule.Daily -> "daily:" + schedule.hour + ":" + schedule.minute
+        is AutomationManager.AutomationSchedule.Weekly -> "weekly:" + schedule.dayOfWeek + ":" + schedule.hour + ":" + schedule.minute
+        is AutomationManager.AutomationSchedule.Interval -> "interval:" + schedule.intervalMs
+        is AutomationManager.AutomationSchedule.Once -> "once:" + schedule.atMs
+    }
+
+    @TypeConverter
+    fun toSchedule(value: String): AutomationManager.AutomationSchedule {
+        val p = value.split(":")
+        return when (p[0]) {
+            "daily" -> AutomationManager.AutomationSchedule.Daily(p[1].toInt(), p[2].toInt())
+            "weekly" -> AutomationManager.AutomationSchedule.Weekly(p[1].toInt(), p[2].toInt(), p[3].toInt())
+            "interval" -> AutomationManager.AutomationSchedule.Interval(p[1].toLong())
+            "once" -> AutomationManager.AutomationSchedule.Once(p[1].toLong())
+            else -> AutomationManager.AutomationSchedule.Interval(3600000L)
+        }
+    }
+}
 
 @Dao
 interface AutomationDao {
@@ -39,7 +45,8 @@ interface AutomationDao {
     suspend fun delete(id: String)
 }
 
-@Database(entities = [AutomationEntity::class], version = 1)
+@Database(entities = [AutomationManager.Automation::class], version = 1, exportSchema = false)
+@TypeConverters(AutomationScheduleConverters::class)
 abstract class AutomationDB : RoomDatabase() {
     abstract fun automationDao(): AutomationDao
     
