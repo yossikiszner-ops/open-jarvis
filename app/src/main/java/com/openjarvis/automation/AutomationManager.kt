@@ -204,8 +204,9 @@ class AutomationManager(private val context: Context) {
         return null
     }
     
+    @Entity(tableName = "automations")
     data class Automation(
-        val id: String,
+        @PrimaryKey val id: String,
         val name: String,
         val command: String,
         val schedule: AutomationSchedule,
